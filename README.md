@@ -17,7 +17,11 @@ The bot is designed for performance. It uses asynchronous database access with S
 - 🪪 **User profiles:** Users can request a compact monthly summary with their profanity index, most-used swear word, daily record, and monthly style.
 - 📈 **Monthly trends:** End-of-month reports compare results with the previous month and highlight the month's most-used swear word and most active day.
 - 💎 **Rare finds:** The bot automatically selects three rare words for each chat every month and posts a short message when a user finds one first.
-- ⏰ **Task scheduling:** APScheduler sends daily reports at 23:01 Kyiv time.
+- ⏰ **Reports:** Daily, weekly (Monday), and monthly (first day) reports cover complete
+  calendar periods and become due at 00:05 Kyiv time. Delivery is checked every five minutes.
+- 🔁 **Recovery:** Delivery progress survives restarts; failed or unfinished reports are retried.
+- ✏️ **Message edits:** Text and media captions are counted; edits update the original day's
+  totals without counting the message twice.
 - 🐳 **Easy deployment:** Ready to run with Docker and Docker Compose.
 
 ## 🛠 Technology Stack
@@ -89,8 +93,10 @@ Local development requires PostgreSQL and Poetry.
 - `/count_swears` — Show your profanity count for today.
 - `/profile_swears` — Show your profanity profile for the current month.
 - `/logs_swears` — Show a detailed log of detected profanity for the day, including time and message text.
-- `/subscribe_swears` — Subscribe the current chat to daily reports sent at 23:01.
-- `/unsubscribe_swears` — Unsubscribe the current chat from daily reports.
+- `/week_swears` — Show the chat's current calendar week, including today.
+- `/month_swears` — Show the chat's current calendar month, including today.
+- `/subscribe_swears` — Subscribe the current chat to daily, weekly, and monthly reports (admins only in groups).
+- `/unsubscribe_swears` — Unsubscribe the current chat from all automatic reports.
 - `/about_swears` — Show information about the bot and its author.
 
 ## 🗂 Project Structure
@@ -107,3 +113,31 @@ The project follows separation-of-concerns principles:
 ## 🐛 Troubleshooting
 
 If you experience database connection or word-counting issues, see [DEBUGGING.md](DEBUGGING.md) for solutions to common problems.
+
+### Report delivery and upgrades
+
+- Existing subscriptions are preserved. An admin can run `/subscribe_swears` in a group
+  to enable all report periods. The bot must be able to send messages there. To count all
+  group messages, make it an admin or disable Group Privacy in BotFather.
+- At startup the bot initializes the database before starting the scheduler and preserves
+  pending Telegram updates. The latest completed day, week, and month are recovered;
+  it does not send every historical period missed during a long outage.
+- Delivery snapshots and the last successfully sent part are stored in PostgreSQL.
+  A crash between Telegram accepting a part and the database recording success can still
+  duplicate that part on retry; Telegram does not provide an idempotency key for sending.
+- New tables `processed_messages` and `report_deliveries`, plus a nullable
+  `swear_logs.message_id` column, are created automatically. Existing counters remain intact.
+  Rollback: restore the previous application version and leave these additive structures in place.
+- Word logs and message baselines are retained for at least 90 days, covering the current
+  and previous full months. Previously deleted logs cannot be reconstructed from counters.
+  Edits to messages sent before this upgrade (without a saved baseline) are ignored to avoid
+  double counting. Already delivered reports are snapshots and are not resent after edits.
+- Dictionary additions were selected from messages dated January 1–September 16, 2026.
+  The private chat export, author identities, and original messages are not included here.
+
+### Verification
+
+Run `poetry run pytest`, `poetry run ruff check .`, and `poetry run ruff format --check .`.
+Tests use dummy credentials. Integration tests start and stop a separate temporary PostgreSQL
+cluster when server binaries are available (otherwise those tests are skipped); they never
+connect to the database configured in `.env`.
