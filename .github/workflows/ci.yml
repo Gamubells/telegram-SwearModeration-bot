@@ -6,6 +6,10 @@ on:
       - master
       - main
 
+concurrency:
+  group: bot-deployment
+  cancel-in-progress: false
+
 jobs:
   # ЭТАП 1: ТАМОЖНЯ (CI)
   test-and-lint:
@@ -40,5 +44,13 @@ jobs:
       - name: 🚀 Перезапуск бота
         run: |
           cd /home/nekoneki/TgBotBadWordsCheker
-          git pull
+          git pull --ff-only
           docker compose up -d --build
+          for attempt in $(seq 1 12); do
+            sleep 10
+            if docker compose exec -T bot python healthcheck.py; then
+              exit 0
+            fi
+          done
+          echo "Bot did not establish healthy polling; inspect server logs for conflicts."
+          exit 1

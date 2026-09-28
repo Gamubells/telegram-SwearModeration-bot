@@ -116,6 +116,16 @@ If you experience database connection or word-counting issues, see [DEBUGGING.md
 
 ### Report delivery and upgrades
 
+- A PostgreSQL session lock permits one active instance per bot ID and database.
+  Other copies wait without polling or sending scheduled reports. A lost lock connection
+  stops the bot before it can continue without ownership.
+- Identical error notifications are limited to one per 15 minutes; all occurrences stay
+  in the file and console logs. `python healthcheck.py` checks successful polling,
+  recent conflicts, and lock ownership. Deployment waits for this check to pass.
+- A conflicting instance using a different database cannot be stopped by this lock.
+  Stop that instance, or revoke the old token in BotFather and configure a new token
+  only on the intended server. Do not run `getUpdates` manually against a running bot.
+
 - Existing subscriptions are preserved. An admin can run `/subscribe_swears` in a group
   to enable all report periods. The bot must be able to send messages there. To count all
   group messages, make it an admin or disable Group Privacy in BotFather.

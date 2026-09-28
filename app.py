@@ -11,6 +11,7 @@ from loguru import logger
 from prometheus_client import start_http_server
 from sqlalchemy import text
 
+from bot_runtime import PollingHealthMiddleware, wait_for_instance
 from database.db import engine
 from database.models import Base
 from database.orm_query import BadWordsRepository
@@ -95,6 +96,15 @@ async def on_shutdown(bot):
 
 
 async def main() -> None:
+    bot.session.middleware(PollingHealthMiddleware())
+    try:
+        await wait_for_instance(engine, bot.id, run_bot)
+    finally:
+        await bot.session.close()
+        await engine.dispose()
+
+
+async def run_bot() -> None:
     logger.info("📱 Запуск бота...")
     await bot.delete_webhook(drop_pending_updates=False)
     dp.startup.register(on_startup)
@@ -129,7 +139,6 @@ async def main() -> None:
     finally:
         if scheduler.running:
             scheduler.shutdown(wait=False)
-        await engine.dispose()
 
 
 if __name__ == "__main__":

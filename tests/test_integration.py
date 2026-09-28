@@ -311,3 +311,20 @@ def test_schema_upgrade_keeps_legacy_data(database):
         assert await BadWordsRepository.get_swear_count(-1, 1, datetime(2026, 9, 1).date()) == 12
 
     asyncio.run(scenario())
+
+
+def test_only_one_process_can_own_bot_lock(database):
+    from bot_runtime import AlreadyRunningError, single_instance
+
+    async def scenario():
+        engine = database.kw["bind"]
+        async with single_instance(engine, 123):
+            with pytest.raises(AlreadyRunningError):
+                async with single_instance(engine, 123):
+                    pytest.fail("Duplicate bot acquired the same lock")
+            async with single_instance(engine, 456):
+                pass
+        async with single_instance(engine, 123):
+            pass
+
+    asyncio.run(scenario())
