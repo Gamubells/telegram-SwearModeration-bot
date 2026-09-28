@@ -98,6 +98,31 @@ Local development requires PostgreSQL and Poetry.
 - `/subscribe_swears` — Subscribe the current chat to daily, weekly, and monthly reports (admins only in groups).
 - `/unsubscribe_swears` — Unsubscribe the current chat from all automatic reports.
 - `/about_swears` — Show information about the bot and its author.
+- `/admin_swear_check` — Show the running release, commit date, image build time,
+  process start time, code fingerprint, and instance name. Only the user configured
+  in `ADMIN_ID` can use this command, including in private chats.
+
+### Checking whether the running bot was updated
+
+Send `/admin_swear_check` to the bot from the `ADMIN_ID` account. Compare its commit
+with the latest GitHub commit, or its code fingerprint with `poetry run python version_info.py`
+in the corresponding checkout. The command describes the code loaded at startup:
+pulling new files without restarting the process does not change its reported release.
+Build time and process start time are labelled separately from the commit date.
+
+Docker builds automatically embed the build date and code fingerprint. To include
+the exact Git commit and its date when building an image manually:
+
+```bash
+docker compose build \
+  --build-arg VCS_REF="$(git rev-parse HEAD)" \
+  --build-arg VCS_DATE="$(git show -s --format=%cI HEAD)" bot
+```
+
+Without these build arguments, Git details are reported as unavailable; build time
+and the fingerprint remain available. The command does not contact GitHub or update
+the bot. It becomes available only after this version is installed on the active server.
+Automatic deployment to Proxmox remains disabled.
 
 ## 🗂 Project Structure
 

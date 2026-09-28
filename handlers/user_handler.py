@@ -9,10 +9,12 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import ErrorEvent, Message, Update
 from loguru import logger
 
+from database.db import settings
 from database.orm_query import TZ_KYIV, BadWordsRepository, RepositoryError
 from metrics import ACTIVE_SUBSCRIPTIONS, MESSAGES_TOTAL, SWEARS_TOTAL
 from scheduler import format_monthly_report, format_weekly_report, split_telegram_message
 from services import check_text_for_swears_detailed
+from version_info import INSTANCE_NAME, PROCESS_STARTED_AT, RUNNING_BUILD, format_admin_build_report
 
 
 router = Router()
@@ -287,6 +289,18 @@ async def _is_admin_or_private_chat(message: Message) -> bool:
 @router.message(CommandStart())
 async def start_command_handler(message: Message):
     await message.answer("Добро пожаловать в бот, который будет считать ваши ругательства")
+
+
+@router.message(Command("admin_swear_check"))
+async def admin_swear_check_handler(message: Message):
+    user = message.from_user
+    if not user or user.is_bot or message.sender_chat or str(user.id) != settings.ADMIN_ID.strip():
+        await message.answer("⛔ Команда доступна только владельцу бота.")
+        return
+    await message.answer(
+        format_admin_build_report(RUNNING_BUILD, PROCESS_STARTED_AT, INSTANCE_NAME),
+        parse_mode="HTML",
+    )
 
 
 @router.message(Command("subscribe_swears"))

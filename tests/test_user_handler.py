@@ -234,6 +234,52 @@ def test_dispatcher_handles_captions_edits_and_slashes(monkeypatch):
         )
         sent_method = bot.session.make_request.call_args.args[1]
         assert "недоступна" in sent_method.text
+
+        # The owner-only version command must be routed before the text counter.
+        record.reset_mock()
+        await dp.feed_update(
+            bot,
+            Update.model_validate(
+                {
+                    "update_id": 101,
+                    "message": {**base, "text": "/admin_swear_check"},
+                }
+            ),
+        )
+        record.assert_not_awaited()
+        sent_method = bot.session.make_request.call_args.args[1]
+        assert "Версия работающего бота" in sent_method.text
         await bot.session.close()
 
     asyncio.run(scenario())
+
+
+def test_admin_version_check_denies_non_owner_even_in_private(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from handlers import user_handler as h
+
+    monkeypatch.setattr(h.settings, "ADMIN_ID", "1")
+    message = SimpleNamespace(
+        from_user=SimpleNamespace(id=2, is_bot=False),
+        sender_chat=None,
+        chat=SimpleNamespace(type="private"),
+        answer=AsyncMock(),
+    )
+    asyncio.run(h.admin_swear_check_handler(message))
+    message.answer.assert_awaited_once_with("⛔ Команда доступна только владельцу бота.")
+
+
+def test_admin_version_check_rejects_anonymous_sender(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from handlers import user_handler as h
+
+    monkeypatch.setattr(h.settings, "ADMIN_ID", "1")
+    message = SimpleNamespace(
+        from_user=SimpleNamespace(id=1, is_bot=False),
+        sender_chat=SimpleNamespace(id=-1),
+        answer=AsyncMock(),
+    )
+    asyncio.run(h.admin_swear_check_handler(message))
+    message.answer.assert_awaited_once_with("⛔ Команда доступна только владельцу бота.")
