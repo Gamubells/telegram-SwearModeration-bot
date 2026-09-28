@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bot-deployment
+  group: bot-ci
   cancel-in-progress: false
 
 jobs:
-  # ЭТАП 1: ТАМОЖНЯ (CI)
+  # Automatic deployment is paused; pushes only run code checks.
   test-and-lint:
     runs-on: self-hosted
     steps:
@@ -36,21 +36,3 @@ jobs:
         env:
           PYTHONPATH: .
         run: poetry run python -m pytest tests/ -v
-
-  deploy:
-    needs: test-and-lint
-    runs-on: self-hosted
-    steps:
-      - name: 🚀 Перезапуск бота
-        run: |
-          cd /home/nekoneki/TgBotBadWordsCheker
-          git pull --ff-only
-          docker compose up -d --build
-          for attempt in $(seq 1 12); do
-            sleep 10
-            if docker compose exec -T bot python healthcheck.py; then
-              exit 0
-            fi
-          done
-          echo "Bot did not establish healthy polling; inspect server logs for conflicts."
-          exit 1

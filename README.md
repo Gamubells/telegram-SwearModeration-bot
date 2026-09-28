@@ -121,7 +121,9 @@ If you experience database connection or word-counting issues, see [DEBUGGING.md
   stops the bot before it can continue without ownership.
 - Identical error notifications are limited to one per 15 minutes; all occurrences stay
   in the file and console logs. `python healthcheck.py` checks successful polling,
-  recent conflicts, and lock ownership. Deployment waits for this check to pass.
+  recent conflicts, and lock ownership.
+- Automatic deployment to Proxmox is temporarily disabled. Pushes to `master` or `main`
+  run Ruff and pytest only; they do not start or update the bot container.
 - A conflicting instance using a different database cannot be stopped by this lock.
   Stop that instance, or revoke the old token in BotFather and configure a new token
   only on the intended server. Do not run `getUpdates` manually against a running bot.
